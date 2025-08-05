@@ -1,7 +1,6 @@
 #include <iostream>
 #include <iomanip>
 #include <map>
-#include <vector>
 #include <string>
 
 using namespace std;
@@ -11,12 +10,15 @@ public:
     void Read(int user_id, int page_count) {
         if (user_page.count(user_id)) {
             int prev_page = user_page[user_id];
-            UpdateBIT(prev_page, -1);
+            --page_stat[prev_page];
+            if (page_stat[prev_page] == 0) {
+                page_stat.erase(prev_page); // Чистим статистику
+            }
         } else {
             ++active_users;
         }
         user_page[user_id] = page_count;
-        UpdateBIT(page_count, 1);
+        ++page_stat[page_count];
     }
 
     double Cheer(int user_id) const {
@@ -26,32 +28,21 @@ public:
         if (active_users == 1) {
             return 1.0;
         }
-        int page = user_page.at(user_id);
-        int count_behind = QueryBIT(page - 1);
+
+        int user_page_num = user_page.at(user_id);
+        int count_behind = 0;
+
+        for (auto it = page_stat.begin(); it != page_stat.end() && it->first < user_page_num; ++it) {
+            count_behind += it->second;
+        }
+
         return static_cast<double>(count_behind) / (active_users - 1);
     }
 
 private:
-    static const int MAX_PAGE_COUNT = 1000;
-    map<int, int> user_page;
-    mutable vector<int> bit = vector<int>(MAX_PAGE_COUNT + 2, 0);
+    map<int, int> user_page;  // user_id -> current page
+    map<int, int> page_stat;  // page number -> user count
     int active_users = 0;
-
-    // Добавляет delta к позиции index в BIT
-    void UpdateBIT(int index, int delta) {
-        for (; index <= MAX_PAGE_COUNT; index += index & -index) {
-            bit[index] += delta;
-        }
-    }
-
-    // Возвращает сумму в диапазоне [1..index]
-    int QueryBIT(int index) const {
-        int sum = 0;
-        for (; index > 0; index -= index & -index) {
-            sum += bit[index];
-        }
-        return sum;
-    }
 };
 
 int main() {
